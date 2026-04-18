@@ -26,6 +26,14 @@
           <el-icon><User /></el-icon>
           <template #title>我的工单</template>
         </el-menu-item>
+        <el-menu-item index="/accepted" class="menu-item">
+          <el-icon><Checked /></el-icon>
+          <template #title>我接的单</template>
+        </el-menu-item>
+        <el-menu-item index="/completed" class="menu-item">
+          <el-icon><CircleCheck /></el-icon>
+          <template #title>已完成</template>
+        </el-menu-item>
         <el-menu-item index="/pending" class="menu-item">
           <el-icon><Clock /></el-icon>
           <template #title>待处理</template>
@@ -204,7 +212,7 @@ import { ElMessage } from 'element-plus'
 import type { FormInstance } from 'element-plus'
 import type { GithubRepo } from '@/types'
 import {
-  Ticket, List, User, Clock, Reading, Setting,
+  Ticket, List, User, Clock, Reading, Setting, Checked, CircleCheck,
   Fold, Expand, UserFilled, ArrowDown, Lock, Close, Plus, Delete, Link
 } from '@element-plus/icons-vue'
 

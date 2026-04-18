@@ -79,7 +79,7 @@
     <el-card class="filter-card glass-card-static">
       <el-form :inline="true" :model="filters" class="filter-form">
         <el-form-item label="" class="glass-form-item">
-          <el-checkbox v-model="filters.mine" @change="handleMineChange" class="mine-checkbox">
+          <el-checkbox v-model="filters.mine" @change="handleMineChange" class="glass-checkbox mine-checkbox">
             显示我的
           </el-checkbox>
         </el-form-item>
@@ -659,11 +659,16 @@ onMounted(() => {
 .mine-checkbox :deep(.el-checkbox__label) {
   color: var(--text-primary);
   font-weight: 500;
+  font-size: 14px;
 }
 
 .mine-checkbox :deep(.el-checkbox__input.is-checked .el-checkbox__inner) {
-  background-color: var(--accent-primary);
+  background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
   border-color: var(--accent-primary);
+}
+
+.mine-checkbox :deep(.el-checkbox__input.is-checked + .el-checkbox__label) {
+  color: var(--accent-primary) !important;
 }
 
 .table-card {
