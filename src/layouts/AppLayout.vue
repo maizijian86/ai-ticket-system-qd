@@ -1,67 +1,14 @@
 <template>
   <el-container class="app-layout">
-    <!-- 侧边栏 -->
-    <el-aside :width="isCollapsed ? '72px' : '240px'" class="sidebar">
-      <!-- Logo 区域 -->
-      <div class="logo glass-card-static">
-        <div class="logo-icon">
-          <el-icon size="22"><Ticket /></el-icon>
-        </div>
-        <span v-show="!isCollapsed" class="logo-text">AI 工单</span>
-      </div>
-
-      <!-- 导航菜单 -->
-      <el-menu
-        :default-active="activeMenu"
-        :collapse="isCollapsed"
-        :collapse-transition="false"
-        class="sidebar-menu"
-        @select="handleMenuSelect"
-      >
-        <el-menu-item index="/tickets" class="menu-item">
-          <el-icon><List /></el-icon>
-          <template #title>工单列表</template>
-        </el-menu-item>
-        <el-menu-item index="/my-tickets" class="menu-item">
-          <el-icon><User /></el-icon>
-          <template #title>我的工单</template>
-        </el-menu-item>
-        <el-menu-item index="/accepted" class="menu-item">
-          <el-icon><Checked /></el-icon>
-          <template #title>我接的单</template>
-        </el-menu-item>
-        <el-menu-item index="/completed" class="menu-item">
-          <el-icon><CircleCheck /></el-icon>
-          <template #title>已完成</template>
-        </el-menu-item>
-        <el-menu-item index="/pending" class="menu-item">
-          <el-icon><Clock /></el-icon>
-          <template #title>待处理</template>
-        </el-menu-item>
-        <el-menu-item index="/knowledge" class="menu-item">
-          <el-icon><Reading /></el-icon>
-          <template #title>知识库</template>
-        </el-menu-item>
-        <el-sub-menu index="admin" v-if="authStore.isAdmin" class="menu-item">
-          <template #title>
-            <el-icon><Setting /></el-icon>
-            <span>管理</span>
-          </template>
-          <el-menu-item index="/admin/users">用户管理</el-menu-item>
-          <el-menu-item index="/admin/stats">统计分析</el-menu-item>
-        </el-sub-menu>
-      </el-menu>
-    </el-aside>
-
     <!-- 主内容区 -->
     <el-container class="main-container">
       <!-- 顶部栏 -->
       <el-header class="header glass-card-static">
         <div class="header-left">
-          <el-icon class="collapse-btn" @click="isCollapsed = !isCollapsed">
-            <Fold v-if="!isCollapsed" />
-            <Expand v-else />
-          </el-icon>
+          <div class="logo-icon">
+            <el-icon size="22"><Ticket /></el-icon>
+          </div>
+          <span class="logo-text">AI 工单</span>
         </div>
         <div class="header-right">
           <!-- 未登录显示登录按钮 -->
@@ -203,7 +150,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, watch } from 'vue'
+import { ref, reactive, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { userApi } from '@/api'
 import { useAuthStore } from '@/stores/auth'
@@ -212,8 +159,7 @@ import { ElMessage } from 'element-plus'
 import type { FormInstance } from 'element-plus'
 import type { GithubRepo } from '@/types'
 import {
-  Ticket, List, User, Clock, Reading, Setting, Checked, CircleCheck,
-  Fold, Expand, UserFilled, ArrowDown, Lock, Close, Plus, Delete, Link
+  Ticket, User, UserFilled, ArrowDown, Lock, Close, Plus, Delete, Link
 } from '@element-plus/icons-vue'
 
 const router = useRouter()
@@ -221,7 +167,6 @@ const route = useRoute()
 const authStore = useAuthStore()
 const ticketStore = useTicketStore()
 
-const isCollapsed = ref(false)
 const showLoginModal = ref(false)
 const isRegisterMode = ref(false)
 const loginLoading = ref(false)
@@ -278,12 +223,6 @@ const registerRules = {
     { required: true, message: '请输入密码', trigger: 'blur' },
     { min: 6, message: '密码至少6位', trigger: 'blur' }
   ]
-}
-
-const activeMenu = computed(() => route.path)
-
-function handleMenuSelect(index: string) {
-  router.push(index)
 }
 
 function handleCommand(command: string) {

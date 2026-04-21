@@ -1,7 +1,7 @@
 <template>
-  <div class="my-tickets">
+  <div class="completed-tickets">
     <div class="page-header">
-      <h2>我的工单</h2>
+      <h2>已完成</h2>
     </div>
 
     <el-card class="table-card glass-card-static">
@@ -31,6 +31,7 @@
             </el-tag>
           </template>
         </el-table-column>
+        <el-table-column prop="creatorName" label="创建人" width="100" />
         <el-table-column prop="handlerName" label="处理人" width="100">
           <template #default="{ row }">
             <span>{{ row.handlerName || '-' }}</span>
@@ -60,10 +61,7 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
 import { ticketApi } from '@/api'
-import { useAuthStore } from '@/stores/auth'
 import type { TicketDTO } from '@/types'
-
-const authStore = useAuthStore()
 
 const tickets = ref<TicketDTO[]>([])
 const loading = ref(false)
@@ -80,7 +78,7 @@ async function loadTickets() {
     const res = await ticketApi.listTickets({
       page: pagination.page,
       pageSize: pagination.pageSize,
-      creatorId: authStore.userInfo?.id
+      status: 'COMPLETED'
     })
     tickets.value = res.data
     pagination.total = res.total

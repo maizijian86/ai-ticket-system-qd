@@ -18,7 +18,7 @@
           <el-icon size="24"><Clock /></el-icon>
         </div>
         <div class="stat-info">
-          <div class="stat-value">{{ stats.open }}</div>
+          <div class="stat-value">{{ mine && activeStatus === 'OPEN' ? mineStats.open : stats.open }}</div>
           <div class="stat-label">待接单</div>
         </div>
         <div class="stat-arrow">
@@ -34,7 +34,7 @@
           <el-icon size="24"><Loading /></el-icon>
         </div>
         <div class="stat-info">
-          <div class="stat-value">{{ stats.accepted }}</div>
+          <div class="stat-value">{{ mine && activeStatus === 'ACCEPTED' ? mineStats.accepted : stats.accepted }}</div>
           <div class="stat-label">处理中</div>
         </div>
         <div class="stat-arrow">
@@ -50,7 +50,7 @@
           <el-icon size="24"><Warning /></el-icon>
         </div>
         <div class="stat-info">
-          <div class="stat-value">{{ stats.pendingApproval }}</div>
+          <div class="stat-value">{{ mine && activeStatus === 'PENDING_APPROVAL' ? mineStats.pendingApproval : stats.pendingApproval }}</div>
           <div class="stat-label">待审批</div>
         </div>
         <div class="stat-arrow">
@@ -66,23 +66,34 @@
           <el-icon size="24"><CircleCheck /></el-icon>
         </div>
         <div class="stat-info">
-          <div class="stat-value">{{ stats.completed }}</div>
+          <div class="stat-value">{{ mine && activeStatus === 'COMPLETED' ? mineStats.completed : stats.completed }}</div>
           <div class="stat-label">已完成</div>
         </div>
         <div class="stat-arrow">
           <el-icon><ArrowRight /></el-icon>
         </div>
       </div>
-    </div>
+</div>
 
     <!-- 筛选栏 -->
     <el-card class="filter-card glass-card-static">
-      <el-form :inline="true" :model="filters" class="filter-form">
-        <el-form-item label="" class="glass-form-item">
-          <el-checkbox v-model="filters.mine" @change="handleMineChange" class="glass-checkbox mine-checkbox">
-            显示我的
-          </el-checkbox>
-        </el-form-item>
+      <!-- 处理中子Tab（无筛选表单） -->
+      <div v-if="activeStatus === 'ACCEPTED'" class="accepted-sub-tabs">
+        <button
+          :class="['sub-tab', acceptedTab === 'my-accepted' ? 'active' : '']"
+          @click="setAcceptedTab('my-accepted')"
+        >
+          我接的单
+        </button>
+        <button
+          :class="['sub-tab', acceptedTab === 'my-created' ? 'active' : '']"
+          @click="setAcceptedTab('my-created')"
+        >
+          我创建的
+        </button>
+      </div>
+      <!-- 其他状态显示完整筛选表单 -->
+      <el-form v-else :inline="true" :model="filters" class="filter-form">
         <el-form-item label="状态" class="glass-form-item">
           <el-select v-model="filters.status" placeholder="全部" clearable style="width: 140px" class="glass-input">
             <el-option label="待接单" value="OPEN" />
@@ -110,10 +121,15 @@
             <el-option label="P3" value="P3" />
           </el-select>
         </el-form-item>
-        <el-form-item label="关键词" class="glass-form-item">
-          <el-input v-model="filters.keyword" placeholder="搜索标题/内容" clearable style="width: 180px" class="glass-input" />
+        <el-form-item class="glass-form-item">
+          <el-input v-model="filters.keyword" placeholder="关键词" clearable style="width: 140px" class="glass-input" />
         </el-form-item>
-        <el-form-item>
+        <el-form-item class="glass-form-item">
+          <el-button @click="toggleMine" :class="['glass-btn', mine ? 'glass-btn-active' : '']">
+            <el-icon><User /></el-icon> 显示我的
+          </el-button>
+        </el-form-item>
+        <el-form-item class="glass-form-item">
           <el-button type="primary" @click="loadTickets" class="btn-glass btn-glass-primary">搜索</el-button>
           <el-button @click="resetFilters" class="btn-glass">重置</el-button>
         </el-form-item>
@@ -148,6 +164,9 @@
             <span v-if="ticket.githubRepos?.length" class="repo-badge">
               <el-icon><Folder /></el-icon> {{ ticket.githubRepos.length }}
             </span>
+            <span v-if="ticket.price !== undefined && ticket.price !== null" class="price-badge">
+              ¥{{ ticket.price.toFixed(0) }}
+            </span>
           </div>
           <div class="ticket-time">{{ formatDate(ticket.createdAt) }}</div>
         </div>
@@ -181,7 +200,7 @@ import { useRouter } from 'vue-router'
 import { ticketApi } from '@/api'
 import { useTicketStore } from '@/stores'
 import { useAuthStore } from '@/stores/auth'
-import { Plus, Clock, Loading, CircleCheck, ArrowRight, Document, Folder, Warning } from '@element-plus/icons-vue'
+import { Plus, Clock, Loading, CircleCheck, ArrowRight, Document, Folder, Warning, User } from '@element-plus/icons-vue'
 import type { TicketDTO, TicketStatsDTO, TicketStatus, TicketCategory, Priority } from '@/types'
 
 const router = useRouter()
@@ -198,13 +217,21 @@ function handleTicketClick(id: number) {
 
 const tickets = ref<TicketDTO[]>([])
 const stats = ref<TicketStatsDTO>({ open: 0, accepted: 0, pendingApproval: 0, completed: 0 })
+const mineStats = ref<TicketStatsDTO>({ open: 0, accepted: 0, pendingApproval: 0, completed: 0 })
 const loading = ref(false)
 const loadingMore = ref(false)
-const activeStatus = ref<TicketStatus | ''>('')
+const activeStatus = ref<TicketStatus | ''>('OPEN')
+const mine = ref(false)
+const acceptedTab = ref<'my-accepted' | 'my-created'>('my-accepted')
+
+function setAcceptedTab(tab: 'my-accepted' | 'my-created') {
+  acceptedTab.value = tab
+  pagination.page = 1
+  loadTickets()
+}
 
 const filters = reactive({
-  mine: false,
-  status: '' as TicketStatus | '',
+  status: 'OPEN' as TicketStatus | '',
   category: '' as TicketCategory | '',
   priority: '' as Priority | '',
   keyword: ''
@@ -219,26 +246,49 @@ const pagination = reactive({
 async function loadTickets() {
   loading.value = true
   try {
-    let res
-    if (filters.mine) {
-      // 只看我的工单
-      res = await ticketApi.listMyTickets(pagination.page, pagination.pageSize, {
-        status: filters.status || undefined,
-        category: filters.category || undefined,
-        priority: filters.priority || undefined,
-        keyword: filters.keyword || undefined
-      })
-    } else {
-      // 所有工单
-      res = await ticketApi.listTickets({
-        page: pagination.page,
-        pageSize: pagination.pageSize,
-        status: filters.status || undefined,
-        category: filters.category || undefined,
-        priority: filters.priority || undefined,
-        keyword: filters.keyword || undefined
-      })
+    const params = {
+      page: pagination.page,
+      pageSize: pagination.pageSize,
+      status: filters.status || undefined,
+      category: filters.category || undefined,
+      priority: filters.priority || undefined,
+      keyword: filters.keyword || undefined
     }
+
+    let res
+    if (mine.value) {
+      // 显示我的工单
+      res = await ticketApi.listTickets({
+        ...params,
+        creatorId: authStore.userInfo?.id
+      })
+    } else if (filters.status === 'OPEN') {
+      // 待接单：排除自己创建的
+      res = await ticketApi.listTickets({
+        ...params,
+        excludeCreatorId: authStore.userInfo?.id
+      })
+    } else if (filters.status === 'ACCEPTED') {
+      // 处理中：根据 acceptedTab 过滤
+      if (acceptedTab.value === 'my-accepted') {
+        // 我接的单
+        res = await ticketApi.listTickets({ ...params, handlerId: authStore.userInfo?.id })
+      } else {
+        // 我创建的被别人接的单
+        res = await ticketApi.listTickets({
+          ...params,
+          creatorId: authStore.userInfo?.id,
+          excludeHandlerId: authStore.userInfo?.id
+        })
+      }
+    } else if (filters.status === 'COMPLETED') {
+      // 已完成的
+      res = await ticketApi.listTickets(params)
+    } else {
+      // 其他状态或全部：不排除自己
+      res = await ticketApi.listTickets(params)
+    }
+
     if (pagination.page === 1) {
       tickets.value = res.data
     } else {
@@ -247,17 +297,20 @@ async function loadTickets() {
     pagination.total = res.total
   } finally {
     loading.value = false
+    // 更新mine筛选时的计数
+    if (mine.value && activeStatus.value && pagination.page === 1) {
+      if (activeStatus.value === 'OPEN') mineStats.value.open = pagination.total
+      else if (activeStatus.value === 'ACCEPTED') mineStats.value.accepted = pagination.total
+      else if (activeStatus.value === 'PENDING_APPROVAL') mineStats.value.pendingApproval = pagination.total
+      else if (activeStatus.value === 'COMPLETED') mineStats.value.completed = pagination.total
+    }
   }
-}
-
-function handleMineChange() {
-  pagination.page = 1
-  loadTickets()
 }
 
 async function loadStats() {
   try {
-    stats.value = await ticketApi.getStats()
+    const userId = authStore.userInfo?.id
+    stats.value = await ticketApi.getStats(userId)
   } catch {
     // ignore
   }
@@ -275,6 +328,15 @@ function handleStatusFilter(status: TicketStatus) {
   loadTickets()
 }
 
+function toggleMine() {
+  mine.value = !mine.value
+  if (!mine.value) {
+    mineStats.value = { open: 0, accepted: 0, pendingApproval: 0, completed: 0 }
+  }
+  pagination.page = 1
+  loadTickets()
+}
+
 function loadMore() {
   loadingMore.value = true
   pagination.page++
@@ -284,7 +346,6 @@ function loadMore() {
 }
 
 function resetFilters() {
-  filters.mine = false
   filters.status = ''
   filters.category = ''
   filters.priority = ''
@@ -575,14 +636,16 @@ onMounted(() => {
 .ticket-card-footer {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-end;
   margin-top: auto;
+  gap: 8px;
 }
 
 .ticket-meta {
   display: flex;
   gap: 8px;
   align-items: center;
+  flex-wrap: wrap;
 }
 
 .priority-badge {
@@ -604,6 +667,17 @@ onMounted(() => {
   font-size: 12px;
   color: var(--accent-info);
   background: rgba(100, 210, 255, 0.1);
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+.price-badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent-success);
+  background: rgba(48, 209, 88, 0.15);
   padding: 2px 8px;
   border-radius: 4px;
 }
@@ -651,25 +725,33 @@ onMounted(() => {
 
 .filter-form {
   display: flex;
-  align-items: flex-end;
+  align-items: center;
   flex-wrap: wrap;
   gap: 16px;
+  padding: 12px 0;
 }
 
-.mine-checkbox :deep(.el-checkbox__label) {
-  color: var(--text-primary);
-  font-weight: 500;
-  font-size: 14px;
+.filter-form :deep(.el-form-item) {
+  margin-bottom: 0;
 }
 
-.mine-checkbox :deep(.el-checkbox__input.is-checked .el-checkbox__inner) {
-  background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
-  border-color: var(--accent-primary);
+.filter-form :deep(.el-input__wrapper) {
+  height: 34px;
+  padding: 0 12px;
 }
 
-.mine-checkbox :deep(.el-checkbox__input.is-checked + .el-checkbox__label) {
-  color: var(--accent-primary) !important;
+.filter-form :deep(.el-input__inner) {
+  height: 34px;
+  line-height: 34px;
 }
+
+.filter-form :deep(.glass-btn) {
+  height: 34px;
+  padding: 0 16px;
+  display: inline-flex;
+  align-items: center;
+}
+
 
 .table-card {
   margin-bottom: 20px;
@@ -694,5 +776,70 @@ onMounted(() => {
 
 .text-tertiary {
   color: var(--text-tertiary);
+}
+
+.glass-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  color: var(--text-secondary);
+  padding: 8px 16px;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.glass-btn:hover {
+  background: var(--glass-bg-hover);
+  border-color: var(--glass-border-hover);
+  color: var(--text-primary);
+}
+
+.glass-btn-active {
+  background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+  border-color: var(--accent-primary);
+  color: #fff;
+  box-shadow: 0 4px 16px rgba(0, 122, 255, 0.3);
+}
+
+.glass-btn-active:hover {
+  background: linear-gradient(135deg, var(--accent-primary), var(--accent-info));
+  border-color: var(--accent-primary);
+  color: #fff;
+}
+
+/* 处理中子Tab */
+.accepted-sub-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.sub-tab {
+  padding: 8px 20px;
+  border-radius: 20px;
+  border: 1px solid var(--glass-border);
+  background: var(--glass-bg);
+  color: var(--text-secondary);
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.25s ease;
+}
+
+.sub-tab:hover {
+  background: var(--glass-bg-hover);
+  border-color: var(--glass-border-hover);
+  color: var(--text-primary);
+}
+
+.sub-tab.active {
+  background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+  border-color: var(--accent-primary);
+  color: #fff;
+  box-shadow: 0 4px 16px rgba(0, 122, 255, 0.3);
 }
 </style>

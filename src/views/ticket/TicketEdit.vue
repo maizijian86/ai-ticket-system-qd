@@ -73,6 +73,43 @@
               <el-radio label="CRITICAL">非常紧急</el-radio>
             </el-radio-group>
           </el-form-item>
+
+          <el-form-item label="工单价格" class="glass-input">
+            <div class="price-section">
+              <div v-if="form.price !== undefined && form.price !== null && !priceLoading" class="price-input-row">
+                <el-input-number v-model="form.price" :min="0" :precision="2" :step="10" />
+                <span class="price-unit">元</span>
+              </div>
+              <div v-else class="price-recommend">
+                <el-button
+                  :loading="priceLoading"
+                  @click="handleRecommendPrice"
+                  :disabled="!form.content || form.content.length < 10"
+                  class="btn-glass"
+                >
+                  <el-icon v-if="!priceLoading"><Money /></el-icon>
+                  AI推荐价格
+                </el-button>
+                <span class="ai-hint">填写问题描述后获取AI推荐价格</span>
+              </div>
+              <div v-if="priceLoading" class="price-loading">
+                <el-icon class="is-loading"><Loading /></el-icon>
+                <span>正在获取AI推荐价格...</span>
+              </div>
+              <div v-if="aiPriceData && !priceLoading" class="price-suggestion glass-card-static">
+                <div class="price-suggestion-header">
+                  <span>AI推荐价格</span>
+                  <span class="price-range">参考区间: {{ aiPriceData.priceRange }}</span>
+                </div>
+                <div class="price-value">
+                  <span class="price-number">¥{{ aiPriceData.suggestedPrice.toFixed(2) }}</span>
+                  <el-button size="small" @click="acceptSuggestedPrice" class="btn-glass">采纳</el-button>
+                  <el-button size="small" @click="clearPriceSuggestion" class="btn-glass">取消</el-button>
+                </div>
+                <div class="price-reasoning">{{ aiPriceData.reasoning }}</div>
+              </div>
+            </div>
+          </el-form-item>
         </el-form>
 
         <div class="form-actions">
@@ -91,14 +128,16 @@ import { ref, reactive, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ticketApi, aiApi } from '@/api'
 import { useTicketStore } from '@/stores'
+import { useAuthStore } from '@/stores/auth'
 import { ElMessage } from 'element-plus'
-import { ArrowLeft, MagicStick, Plus, Delete } from '@element-plus/icons-vue'
+import { ArrowLeft, MagicStick, Plus, Delete, Money, Loading } from '@element-plus/icons-vue'
 import type { FormInstance } from 'element-plus'
-import type { TicketCategory, Urgency, TicketDTO, GithubRepo } from '@/types'
+import type { TicketCategory, Urgency, TicketDTO, GithubRepo, PriceRecommendResponse } from '@/types'
 
 const router = useRouter()
 const route = useRoute()
 const ticketStore = useTicketStore()
+const authStore = useAuthStore()
 
 const ticketId = Number(route.params.id)
 
@@ -107,13 +146,17 @@ const submitting = ref(false)
 const aiFilling = ref(false)
 const hasAiFilled = ref(false)
 const loading = ref(false)
+const priceLoading = ref(false)
+const aiPriceData = ref<PriceRecommendResponse | null>(null)
 
 const form = reactive({
   content: '',
   title: '',
   category: '' as TicketCategory | '',
   urgency: 'NORMAL' as Urgency,
-  githubRepos: [] as GithubRepo[]
+  githubRepos: [] as GithubRepo[],
+  price: undefined as number | undefined,
+  aiPriceSuggestion: undefined as number | undefined
 })
 
 const rules = {
@@ -134,14 +177,57 @@ async function loadTicket() {
   loading.value = true
   try {
     const ticket: TicketDTO = await ticketApi.getTicket(ticketId)
+    // 非创建者不能编辑，直接跳转回去
+    if (ticket.creatorId !== authStore.userInfo?.id) {
+      router.push(`/tickets/${ticketId}`)
+      return
+    }
     form.content = ticket.content
     form.title = ticket.title
     form.category = ticket.category || ''
     form.urgency = ticket.urgency
     form.githubRepos = ticket.githubRepos ? [...ticket.githubRepos] : []
+    form.price = ticket.price
+    form.aiPriceSuggestion = ticket.aiPriceSuggestion
   } finally {
     loading.value = false
   }
+}
+
+async function handleRecommendPrice() {
+  if (!form.content || form.content.length < 10) {
+    ElMessage.warning('请先填写问题描述（至少10个字）')
+    return
+  }
+
+  priceLoading.value = true
+  aiPriceData.value = null
+  try {
+    const res = await aiApi.recommendPrice(
+      form.content,
+      form.category || undefined,
+      undefined,
+      form.urgency
+    )
+    aiPriceData.value = res
+  } catch {
+    ElMessage.error('获取AI推荐价格失败')
+  } finally {
+    priceLoading.value = false
+  }
+}
+
+function acceptSuggestedPrice() {
+  if (aiPriceData.value) {
+    form.price = aiPriceData.value.suggestedPrice
+    form.aiPriceSuggestion = aiPriceData.value.suggestedPrice
+  }
+}
+
+function clearPriceSuggestion() {
+  aiPriceData.value = null
+  form.price = undefined
+  form.aiPriceSuggestion = undefined
 }
 
 async function handleAiFill() {
@@ -202,7 +288,8 @@ async function handleSubmit() {
           content: form.content,
           category: form.category as TicketCategory,
           urgency: form.urgency as Urgency,
-          githubRepos: form.githubRepos.length > 0 ? form.githubRepos : []
+          githubRepos: form.githubRepos.length > 0 ? form.githubRepos : [],
+          price: form.price
         } as Partial<TicketDTO>)
 
         ticketStore.triggerRefresh()
@@ -278,5 +365,78 @@ onMounted(() => {
   display: flex;
   justify-content: flex-end;
   gap: 16px;
+}
+
+/* Price section styles */
+.price-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.price-recommend {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.price-loading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-secondary);
+}
+
+.price-suggestion {
+  padding: 16px;
+  border-radius: var(--radius-md) !important;
+}
+
+.price-suggestion-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  font-weight: 600;
+  color: var(--accent-info);
+}
+
+.price-range {
+  font-size: 12px;
+  font-weight: normal;
+  color: var(--text-secondary);
+}
+
+.price-value {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.price-number {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--accent-success);
+}
+
+.price-unit {
+  color: var(--text-secondary);
+}
+
+.price-reasoning {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+.price-input-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.price-input-row .el-input-number {
+  width: 150px;
 }
 </style>

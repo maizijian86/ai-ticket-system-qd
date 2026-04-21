@@ -598,6 +598,16 @@ a:hover {
   border-color: var(--accent-primary);
 }
 
+.glass-checkbox.mine-checkbox .el-checkbox__label {
+  color: var(--text-primary) !important;
+  font-weight: 500;
+  font-size: 14px;
+}
+
+.glass-checkbox.mine-checkbox .el-checkbox__input.is-checked + .el-checkbox__label {
+  color: var(--accent-primary) !important;
+}
+
 /* ========================================
    单选框
    ======================================== */

@@ -55,7 +55,7 @@
           </div>
 
           <!-- 价格信息 -->
-          <div v-if="ticket.price" class="price-info glass-card-static">
+          <div v-if="ticket.price !== undefined && ticket.price !== null" class="price-info glass-card-static">
             <div class="price-item">
               <span class="label">工单价格</span>
               <span class="price-value">¥{{ ticket.price.toFixed(2) }}</span>
@@ -107,7 +107,7 @@
             >
               完成
             </el-button>
-            <el-button v-if="ticket.status !== 'CLOSED' && ticket.status !== 'COMPLETED'" @click="handleClose" class="btn-glass">
+            <el-button v-if="ticket.creatorId === authStore.userInfo?.id && ticket.status !== 'CLOSED' && ticket.status !== 'COMPLETED'" @click="handleClose" class="btn-glass">
               关闭工单
             </el-button>
           </div>
@@ -398,6 +398,11 @@ function scrollChatToBottom() {
 async function handleAccept() {
   if (!ticket.value) return
   try {
+    await ElMessageBox.confirm('确定要接下此工单吗？', '确认接单', {
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+      type: 'info'
+    })
     ticket.value = await ticketApi.acceptTicket(ticket.value.id)
     ticketStore.triggerRefresh()
     ElMessage.success('已接单')

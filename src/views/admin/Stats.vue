@@ -114,7 +114,18 @@ const progressColors = [
 
 async function loadStats() {
   try {
-    stats.value = await ticketApi.getStats()
+    const [openRes, acceptedRes, pendingRes, completedRes] = await Promise.all([
+      ticketApi.listTickets({ status: 'OPEN', pageSize: 1 }),
+      ticketApi.listTickets({ status: 'ACCEPTED', pageSize: 1 }),
+      ticketApi.listTickets({ status: 'PENDING_APPROVAL', pageSize: 1 }),
+      ticketApi.listTickets({ status: 'COMPLETED', pageSize: 1 })
+    ])
+    stats.value = {
+      open: openRes.total,
+      accepted: acceptedRes.total,
+      pendingApproval: pendingRes.total,
+      completed: completedRes.total
+    }
   } catch {
     // ignore
   }

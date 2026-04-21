@@ -37,13 +37,6 @@
             {{ formatDate(row.createdAt) }}
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="120">
-          <template #default="{ row }">
-            <el-button type="primary" size="small" @click="handleAssign(row)" class="btn-glass btn-glass-primary">
-              领取
-            </el-button>
-          </template>
-        </el-table-column>
       </el-table>
 
       <el-pagination
@@ -63,11 +56,11 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
 import { ticketApi } from '@/api'
-import { useAuthStore } from '@/stores'
-import { ElMessage } from 'element-plus'
+import { useAuthStore } from '@/stores/auth'
 import type { TicketDTO } from '@/types'
 
 const authStore = useAuthStore()
+
 const tickets = ref<TicketDTO[]>([])
 const loading = ref(false)
 
@@ -80,22 +73,16 @@ const pagination = reactive({
 async function loadTickets() {
   loading.value = true
   try {
-    const res = await ticketApi.listPendingTickets(pagination.page, pagination.pageSize)
+    const res = await ticketApi.listTickets({
+      page: pagination.page,
+      pageSize: pagination.pageSize,
+      status: 'OPEN',
+      excludeCreatorId: authStore.userInfo?.id
+    })
     tickets.value = res.data
     pagination.total = res.total
   } finally {
     loading.value = false
-  }
-}
-
-async function handleAssign(ticket: TicketDTO) {
-  if (!authStore.userInfo?.id) return
-  try {
-    await ticketApi.assignHandler(ticket.id, authStore.userInfo.id)
-    ElMessage.success('已领取工单')
-    loadTickets()
-  } catch {
-    // error handled
   }
 }
 
@@ -127,20 +114,24 @@ function getCategoryLabel(category: string) {
 
 function getStatusType(status: string) {
   const map: Record<string, string> = {
-    open: 'warning',
-    processing: 'primary',
-    resolved: 'success',
-    closed: 'info'
+    OPEN: 'warning',
+    ACCEPTED: 'primary',
+    PENDING_APPROVAL: 'danger',
+    COMPLETED: 'success',
+    REJECTED: 'danger',
+    CLOSED: 'info'
   }
   return map[status] || 'info'
 }
 
 function getStatusLabel(status: string) {
   const map: Record<string, string> = {
-    open: '待处理',
-    processing: '处理中',
-    resolved: '已解决',
-    closed: '已关闭'
+    OPEN: '待接单',
+    ACCEPTED: '处理中',
+    PENDING_APPROVAL: '待审批',
+    COMPLETED: '已完成',
+    REJECTED: '已拒绝',
+    CLOSED: '已关闭'
   }
   return map[status] || status
 }

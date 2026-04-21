@@ -26,24 +26,17 @@ export const ticketApi = {
     return request.get<any, PageResult<TicketDTO>>('/v1/tickets', { params })
   },
 
-  listMyTickets(page: number = 1, pageSize: number = 10, filters?: Partial<TicketQueryRequest>) {
-    return request.get<any, PageResult<TicketDTO>>('/v1/tickets/my', { params: { page, pageSize, ...filters } })
+  getStats(excludeCreatorId?: number) {
+    const params = excludeCreatorId ? { excludeCreatorId } : {}
+    return request.get<any, TicketStatsDTO>('/v1/tickets/stats', { params })
   },
 
-  listPendingTickets(page: number = 1, pageSize: number = 10) {
-    return request.get<any, PageResult<TicketDTO>>('/v1/tickets/pending', { params: { page, pageSize } })
-  },
-
-  updateTicket(id: number, data: Partial<TicketDTO>) {
+  updateTicket(id: number, data: Partial<CreateTicketRequest>) {
     return request.put<any, TicketDTO>(`/v1/tickets/${id}`, data)
   },
 
   deleteTicket(id: number) {
     return request.delete<any, void>(`/v1/tickets/${id}`)
-  },
-
-  assignHandler(id: number, handlerId: number) {
-    return request.put<any, TicketDTO>(`/v1/tickets/${id}/assign`, { handlerId })
   },
 
   acceptTicket(id: number) {
@@ -58,20 +51,8 @@ export const ticketApi = {
     return request.post<any, TicketDTO>(`/v1/tickets/${id}/approve`, data)
   },
 
-  startProcessing(id: number) {
-    return request.put<any, TicketDTO>(`/v1/tickets/${id}/start`)
-  },
-
-  resolve(id: number) {
-    return request.put<any, TicketDTO>(`/v1/tickets/${id}/resolve`)
-  },
-
   close(id: number) {
     return request.put<any, TicketDTO>(`/v1/tickets/${id}/close`)
-  },
-
-  reopen(id: number) {
-    return request.put<any, TicketDTO>(`/v1/tickets/${id}/reopen`)
   },
 
   addComment(id: number, data: AddCommentRequest) {
@@ -80,10 +61,6 @@ export const ticketApi = {
 
   getComments(id: number) {
     return request.get<any, CommentDTO[]>(`/v1/tickets/${id}/comments`)
-  },
-
-  getStats() {
-    return request.get<any, TicketStatsDTO>('/v1/tickets/stats')
   },
 
   getChatMessages(id: number) {

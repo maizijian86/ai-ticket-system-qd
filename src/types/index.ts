@@ -155,6 +155,8 @@ export interface TicketQueryRequest {
   keyword?: string
   page?: number
   pageSize?: number
+  excludeCreatorId?: number
+  excludeHandlerId?: number
 }
 
 export interface TicketStatsDTO {
